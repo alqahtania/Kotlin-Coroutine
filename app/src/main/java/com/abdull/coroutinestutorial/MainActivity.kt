@@ -4,12 +4,9 @@ import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
 import android.view.View
 import kotlinx.android.synthetic.main.activity_main.*
-import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.*
 import kotlinx.coroutines.Dispatchers.IO
 import kotlinx.coroutines.Dispatchers.Main
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 
 class MainActivity : AppCompatActivity() {
 
@@ -17,6 +14,7 @@ class MainActivity : AppCompatActivity() {
         private const val TAG = "MainActivity"
         private const val RESULT_1 = "Result_1"
         private const val RESULT_2 = "Result_2"
+        private const val JOB_TIMEOUT = 2100L
 
     }
 
@@ -45,13 +43,25 @@ class MainActivity : AppCompatActivity() {
     }
 
     private suspend fun fakeApiRequest() {
-        val result1 = getResult1FromApi()
-        setTextOnMainThread(result1)
+        withContext(IO) {
 
-        val result2 = getResult2FromApi()
-        setTextOnMainThread(result2)
+            val job = withTimeoutOrNull(JOB_TIMEOUT) {
+                val result1 = getResult1FromApi()
+                setTextOnMainThread("Got $result1")
 
-        println("debug: $result1")
+                val result2 = getResult2FromApi()
+                setTextOnMainThread("Got $result2")
+            }
+
+            if(job == null){
+                val cancelMessage = "Cancelling the job... Job took longer than $JOB_TIMEOUT ms"
+                println("debug: $cancelMessage")
+                setTextOnMainThread(cancelMessage)
+            }
+        }
+
+
+
     }
 
     private suspend fun getResult1FromApi(): String {
@@ -62,7 +72,7 @@ class MainActivity : AppCompatActivity() {
 
     private suspend fun getResult2FromApi(): String {
         logThread("debug: getResult2FromApi")
-        delay(5000)
+        delay(1000)
         return RESULT_2
     }
 
