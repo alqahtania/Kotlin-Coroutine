@@ -1,8 +1,9 @@
 package com.abdull.coroutinestutorial
 
-import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
-import android.view.View
+import android.widget.ProgressBar
+import android.widget.Toast
+import androidx.appcompat.app.AppCompatActivity
 import kotlinx.android.synthetic.main.activity_main.*
 import kotlinx.coroutines.*
 import kotlinx.coroutines.Dispatchers.IO
@@ -11,74 +12,81 @@ import kotlinx.coroutines.Dispatchers.Main
 class MainActivity : AppCompatActivity() {
 
     companion object {
-        private const val TAG = "MainActivity"
-        private const val RESULT_1 = "Result_1"
-        private const val RESULT_2 = "Result_2"
-        private const val JOB_TIMEOUT = 2100L
-
+        private const val PROGRESS_MAX = 100
+        private const val PROGRESS_START = 0
+        private const val JOB_TIME = 4000
     }
+
+    private lateinit var job: CompletableJob
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
-        button_coroutine.setOnClickListener {
-            //Scopes: IO, Main, Default
-            CoroutineScope(IO).launch {
-                fakeApiRequest()
+
+        job_button.setOnClickListener{
+            if(!::job.isInitialized){
+                initJob()
+            }
+            job_progress_bar.startJobOrCancel(job)
+        }
+
+    }
+
+    fun ProgressBar.startJobOrCancel(job: Job){
+        if(this.progress > 0){
+            println("$job is already active. Cancelling...")
+            resetJob()
+        }else{
+            job_button.text = "Cancel Job #1"
+            CoroutineScope(IO + job).launch {
+                println("Coroutine $this is activated with job $job")
+                for(i in PROGRESS_START..PROGRESS_MAX){
+                    delay((JOB_TIME / PROGRESS_MAX).toLong()) // this guarantees that the job will take JOB_TIME amount of time to finish in ms
+                    this@startJobOrCancel.progress = i
+                }
+                updateJobCompleteTextView("Job is complete")
             }
         }
     }
 
-    private fun setTextView(input: String) {
-        var result = text.text.toString() + "\n$input"
-        text.text = result
+    private fun resetJob() {
+        if(job.isActive || job.isCompleted){
+            job.cancel(CancellationException("Resetting job"))
+        }
+        initJob() // if a job is cancelled you can't reuse/restart it you have to create a new one
     }
-
-    private suspend fun setTextOnMainThread(input: String) {
-
-        withContext(Main) {
-            setTextView(input)
+    private fun updateJobCompleteTextView(text: String){
+        GlobalScope.launch(Main) {
+            job_complete_text.text = text
         }
     }
 
-    private suspend fun fakeApiRequest() {
-        withContext(IO) {
 
-            val job = withTimeoutOrNull(JOB_TIMEOUT) {
-                val result1 = getResult1FromApi()
-                setTextOnMainThread("Got $result1")
-
-                val result2 = getResult2FromApi()
-                setTextOnMainThread("Got $result2")
-            }
-
-            if(job == null){
-                val cancelMessage = "Cancelling the job... Job took longer than $JOB_TIMEOUT ms"
-                println("debug: $cancelMessage")
-                setTextOnMainThread(cancelMessage)
+    fun initJob(){
+        job_button.text = "Start Job #1"
+        job_complete_text.text = ""
+        job = Job()
+        job.invokeOnCompletion {
+            it?.message.let {
+                var msg = it
+                if(msg.isNullOrBlank()){
+                    msg = "Unknown cancellation error."
+                }
+                println("$job was cancelled. Reason: $msg")
+                showToast(msg)
             }
         }
 
-
-
+        job_progress_bar.max = PROGRESS_MAX
+        job_progress_bar.progress = PROGRESS_START
     }
 
-    private suspend fun getResult1FromApi(): String {
-        logThread("getResult1FromApi")
-        delay(1000)
-        return RESULT_1
-    }
+    fun showToast(text: String){
+        GlobalScope.launch(Main) {
+            Toast.makeText(this@MainActivity, text, Toast.LENGTH_SHORT ).show()
+        }
 
-    private suspend fun getResult2FromApi(): String {
-        logThread("debug: getResult2FromApi")
-        delay(1000)
-        return RESULT_2
     }
-
-    private fun logThread(methodName: String) {
-        println("debug: $methodName: Thread: ${Thread.currentThread().name}")
-    }
-
 
 }
