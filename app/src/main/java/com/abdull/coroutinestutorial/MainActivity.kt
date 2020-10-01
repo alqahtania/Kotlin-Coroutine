@@ -3,19 +3,16 @@ package com.abdull.coroutinestutorial
 import android.os.Bundle
 import androidx.appcompat.app.AppCompatActivity
 import kotlinx.android.synthetic.main.activity_main.*
-import kotlinx.coroutines.*
-import kotlinx.coroutines.Dispatchers.IO
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers.Main
-import kotlin.system.measureTimeMillis
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
+import kotlin.random.Random
 
 class MainActivity : AppCompatActivity() {
 
-    companion object {
-        private const val TAG = "MainActivity"
-        private const val RESULT_1 = "Result_1"
-        private const val RESULT_2 = "Result_2"
 
-    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -27,54 +24,39 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun setTextView(input: String) {
-        var result = text.text.toString() + "\n$input"
-        text.text = result
-    }
+    private fun fakeApiRequest() {
+        CoroutineScope(Main).launch {
+            println("Launching the job on thread: ${Thread.currentThread().name}")
+            val result1 = getResult()
+            println("debug: Result1 is $result1")
+            val result2 = getResult()
+            println("debug: Result2 is $result2")
+            val result3 = getResult()
+            println("debug: Result3 is $result3")
+            val result4 = getResult()
+            println("debug: Result4 is $result4")
+            val result5 = getResult()
+            println("debug: Result5 is $result5")
 
-    private suspend fun setTextOnMainThread(input: String) {
-        withContext(Main) {
-            setTextView(input)
         }
-    }
 
-    private  fun fakeApiRequest() {
-        CoroutineScope(IO).launch {
-            val executionTime = measureTimeMillis {
-                val result1 = async {
-                    println("debug: launching job1: ${Thread.currentThread().name}")
-                    getResult1FromApi()
-                }.await()
-
-                val result2 = async {
-                    println("debug: launching job2: ${Thread.currentThread().name}")
-                    getResult2FromApi(result1)
-                }.await()
-
-                println("debug: got result2 $result2")
+        CoroutineScope(Main).launch {
+            delay(1000)
+            //runBlocking will block the entire thread until it finishes leading the results above to suspend
+            runBlocking {
+                println("Blocking thread: ${Thread.currentThread().name}")
+                delay(5000)
+                println("Done blocking thread ${Thread.currentThread().name}")
             }
-            println("debug: total execution time: $executionTime")
         }
-
     }
 
-    private suspend fun getResult1FromApi(): String {
-        logThread("getResult1FromApi")
+
+    private suspend fun getResult() : Int{
+//        println("debug: getResult() running in thread ${Thread.currentThread().name}")
         delay(1000)
-        return RESULT_1
-    }
+        return Random.nextInt(0, 11)
 
-    private suspend fun getResult2FromApi(result1 : String): String {
-        logThread("debug: getResult2FromApi")
-        delay(1700)
-        if(result1 == RESULT_1){
-            return RESULT_2
-        }
-        throw CancellationException("Result #1 was incorrect!!")
-    }
-
-    private fun logThread(methodName: String) {
-        println("debug: $methodName: Thread: ${Thread.currentThread().name}")
     }
 
 
