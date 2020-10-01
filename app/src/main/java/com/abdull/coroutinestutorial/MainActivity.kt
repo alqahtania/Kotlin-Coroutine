@@ -1,15 +1,12 @@
 package com.abdull.coroutinestutorial
 
-import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
-import android.view.View
+import androidx.appcompat.app.AppCompatActivity
 import kotlinx.android.synthetic.main.activity_main.*
-import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.*
 import kotlinx.coroutines.Dispatchers.IO
 import kotlinx.coroutines.Dispatchers.Main
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
+import kotlin.system.measureTimeMillis
 
 class MainActivity : AppCompatActivity() {
 
@@ -25,10 +22,8 @@ class MainActivity : AppCompatActivity() {
         setContentView(R.layout.activity_main)
 
         button_coroutine.setOnClickListener {
-            //Scopes: IO, Main, Default
-            CoroutineScope(IO).launch {
-                fakeApiRequest()
-            }
+            text.text = "Clicked!"
+            fakeApiRequest()
         }
     }
 
@@ -38,20 +33,29 @@ class MainActivity : AppCompatActivity() {
     }
 
     private suspend fun setTextOnMainThread(input: String) {
-
         withContext(Main) {
             setTextView(input)
         }
     }
 
-    private suspend fun fakeApiRequest() {
-        val result1 = getResult1FromApi()
-        setTextOnMainThread(result1)
+    private  fun fakeApiRequest() {
+        CoroutineScope(IO).launch {
+            val executionTime = measureTimeMillis {
+                val result1 = async {
+                    println("debug: launching job1: ${Thread.currentThread().name}")
+                    getResult1FromApi()
+                }.await()
 
-        val result2 = getResult2FromApi()
-        setTextOnMainThread(result2)
+                val result2 = async {
+                    println("debug: launching job2: ${Thread.currentThread().name}")
+                    getResult2FromApi(result1)
+                }.await()
 
-        println("debug: $result1")
+                println("debug: got result2 $result2")
+            }
+            println("debug: total execution time: $executionTime")
+        }
+
     }
 
     private suspend fun getResult1FromApi(): String {
@@ -60,10 +64,13 @@ class MainActivity : AppCompatActivity() {
         return RESULT_1
     }
 
-    private suspend fun getResult2FromApi(): String {
+    private suspend fun getResult2FromApi(result1 : String): String {
         logThread("debug: getResult2FromApi")
-        delay(5000)
-        return RESULT_2
+        delay(1700)
+        if(result1 == RESULT_1){
+            return RESULT_2
+        }
+        throw CancellationException("Result #1 was incorrect!!")
     }
 
     private fun logThread(methodName: String) {
