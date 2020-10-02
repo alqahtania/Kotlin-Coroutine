@@ -4,11 +4,9 @@ import android.os.Bundle
 import android.util.Log
 import androidx.appcompat.app.AppCompatActivity
 import kotlinx.android.synthetic.main.activity_main.*
-import kotlinx.coroutines.CoroutineExceptionHandler
-import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.*
 import kotlinx.coroutines.Dispatchers.IO
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
+
 
 class MainActivity : AppCompatActivity() {
 
@@ -76,11 +74,15 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+
+
     suspend fun getResult(number : Int) : Int{
         println("Result number $number running on thread: ${Thread.currentThread().name}")
         delay(number*500L)
         if(number == 2){
-            throw Exception("Error getting result for number $number")
+//            throw Exception("Error getting result for number $number")
+//            cancel(CancellationException("Error getting result for number $number")) // calling cancel from the suspend method won't do anything
+            throw CancellationException("Error getting result for number $number") //this is equivalent to calling cancel() on the job its self
         }
         return number*2
     }
