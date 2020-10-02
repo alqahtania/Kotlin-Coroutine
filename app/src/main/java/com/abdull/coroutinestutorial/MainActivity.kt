@@ -1,63 +1,94 @@
 package com.abdull.coroutinestutorial
 
 import android.os.Bundle
+import android.util.Log
 import androidx.appcompat.app.AppCompatActivity
 import kotlinx.android.synthetic.main.activity_main.*
+import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers.Main
+import kotlinx.coroutines.Dispatchers.IO
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.runBlocking
-import kotlin.random.Random
 
 class MainActivity : AppCompatActivity() {
 
+    companion object{
+        private const val TAG = "MainActivity"
+    }
 
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
-        button_coroutine.setOnClickListener {
-            text.text = "Clicked!"
-            fakeApiRequest()
+        button_coroutine.setOnClickListener{
+            main()
         }
+
+
     }
 
-    private fun fakeApiRequest() {
-        CoroutineScope(Main).launch {
-            println("Launching the job on thread: ${Thread.currentThread().name}")
-            val result1 = getResult()
-            println("debug: Result1 is $result1")
-            val result2 = getResult()
-            println("debug: Result2 is $result2")
-            val result3 = getResult()
-            println("debug: Result3 is $result3")
-            val result4 = getResult()
-            println("debug: Result4 is $result4")
-            val result5 = getResult()
-            println("debug: Result5 is $result5")
+
+    val handler = CoroutineExceptionHandler{_, exception ->
+        println("Exception thrown in one of the children: $exception") }
+
+    fun main(){
+        val parentJob = CoroutineScope(IO).launch(handler) {
+            val jobA = launch {
+                val resultA = getResult(1)
+                println("resultA $resultA")
+            }
+            jobA.invokeOnCompletion {
+                t ->
+                if(t != null){
+                    println("Error getting resultA: $t")
+                }
+            }
+            val jobB = launch {
+                val resultB = getResult(2)
+                println("resultB $resultB")
+            }
+            jobB.invokeOnCompletion {
+                t ->
+                if(t != null){
+                    println("Error getting resultB: $t")
+                }
+            }
+            val jobC = launch {
+                val resultC = getResult(3)
+                println("resultC $resultC")
+            }
+            jobC.invokeOnCompletion {
+                t ->
+                if(t != null){
+                    println("Error getting resultC: $t")
+                }
+            }
 
         }
-
-        CoroutineScope(Main).launch {
-            delay(1000)
-            //runBlocking will block the entire thread until it finishes leading the results above to suspend
-            runBlocking {
-                println("Blocking thread: ${Thread.currentThread().name}")
-                delay(5000)
-                println("Done blocking thread ${Thread.currentThread().name}")
+        parentJob.invokeOnCompletion { t ->
+            if(t != null){
+                println("Parent job failed: $t")
+            }
+            else{
+                println("Parent job SUCCESS")
             }
         }
     }
 
-
-    private suspend fun getResult() : Int{
-//        println("debug: getResult() running in thread ${Thread.currentThread().name}")
-        delay(1000)
-        return Random.nextInt(0, 11)
-
+    suspend fun getResult(number : Int) : Int{
+        println("Result number $number running on thread: ${Thread.currentThread().name}")
+        delay(number*500L)
+        if(number == 2){
+            throw Exception("Error getting result for number $number")
+        }
+        return number*2
     }
+
+    private fun println(message: String){
+        Log.d(TAG, " $message")
+    }
+
 
 
 }
